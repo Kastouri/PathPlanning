@@ -64,8 +64,10 @@ void Planner::spline_from_rem_path(double &car_prev_p_last_x,
     }
 }
 
-vector<vector<double>> Planner::path_from_spline(Car car, vector<vector<double>> remaining_prev_path,
-                                             vector<double> &spline_pts_x, vector<double> &spline_pts_y){
+vector<vector<double>> Planner::path_from_spline(double &car_prev_p_last_x, double &car_prev_p_last_y, 
+                                                double &car_prev_p_last_yaw,
+                                                vector<vector<double>> &remaining_prev_path,
+                                                vector<double> &spline_pts_x, vector<double> &spline_pts_y){
 
     // x and y values for the new path
     vector<double> next_x_vals;
@@ -74,10 +76,6 @@ vector<vector<double>> Planner::path_from_spline(Car car, vector<vector<double>>
     // number of remaining points of the prev. path
     int prev_path_size = remaining_prev_path[0].size();
 
-    // car's last position and orientation
-    double car_prev_p_last_x = car.x;
-    double car_prev_p_last_y = car.y;
-    double car_prev_p_last_yaw = car.yaw;
     /**
      * Generating the new path
      *  start by adding new points to the splines Anchor
@@ -129,7 +127,7 @@ vector<vector<double>> Planner::generate_keep_l_tr(Car car,
     // calculated x and y values for the new path
     vector<double> next_x_vals;
     vector<double> next_y_vals;
-    
+    vector<vector<double>> next_xy_vals;
     // calculates car's current lane
     int lane = car.d / 4;
 
@@ -205,9 +203,10 @@ vector<vector<double>> Planner::generate_keep_l_tr(Car car,
      *  start by adding new points to the splines Anchor
      *  generate new points using the spline
      */
-        
-    // add the remaining points from the previous path to the new path
-    for(int i = 0; i < prev_path_size; ++i) {
+    next_xy_vals = path_from_spline(car_prev_p_last_x, car_prev_p_last_y, car_prev_p_last_yaw,
+                                     remaining_prev_path, spline_pts_x, spline_pts_y);    
+  // add the remaining points from the previous path to the new path
+  /*   for(int i = 0; i < prev_path_size; ++i) {
         next_x_vals.push_back(remaining_prev_path[0][i]);
         next_y_vals.push_back(remaining_prev_path[1][i]);
     }
@@ -243,7 +242,7 @@ vector<vector<double>> Planner::generate_keep_l_tr(Car car,
         car_spline_y_l = car_spline_y;
         car_spline_yaw_l = car_spline_yaw;   
     }      
-    cout << " generated " << 50 - prev_path_size << " points for the current path" << endl; 
+    cout << " generated " << 50 - prev_path_size << " points for the current path" << endl;   */
 
-    return {next_x_vals, next_y_vals};
+    return next_xy_vals;
 }

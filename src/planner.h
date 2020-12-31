@@ -50,7 +50,9 @@ private:
      * Helper function to generate a path out of the remaining path points
      * and using a spline going through the anchor points
      */ 
-    vector<vector<double>> path_from_spline(Car car, vector<vector<double>> remaining_prev_path,
+    vector<vector<double>> path_from_spline(double &car_prev_p_last_x, double &car_prev_p_last_y, 
+                                                double &car_prev_p_last_yaw,
+                                                 vector<vector<double>> &remaining_prev_path,
                                              vector<double> &spline_pts_x, vector<double> &spline_pts_y);
 
 public:
