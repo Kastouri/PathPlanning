@@ -124,8 +124,7 @@ int main() {
 
           planner.update_sensor_fusion_data(sensor_fusion);
           //planner.sensor_fusion_data = sensor_fusion;
-          vector<vector<double>> prev_path = {previous_path_x, previous_path_y};
-          vector<vector<double>> new_path = planner.generate_kl_trajectory(car, {previous_path_x, previous_path_y} );
+          vector<vector<double>> new_path = planner.generate_keep_l_tr(car, {previous_path_x, previous_path_y} );
           
           msgJson["next_x"] = new_path[0];//next_x_vals;
           msgJson["next_y"] = new_path[1]; //next_y_vals;

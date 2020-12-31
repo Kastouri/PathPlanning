@@ -36,10 +36,27 @@ private:
      */
     double target_speed;
 
+    /**
+     * Helper function to add 2 points from the previous path to the spline anchor vector
+     * in order to achieve a smooth transition
+     */
+    void spline_from_rem_path(double &car_prev_p_last_x,
+                                double &car_prev_p_last_y, 
+                                double &car_prev_p_last_yaw,
+                                vector<vector<double>> &remaining_prev_path,  
+                                vector<double> &spline_pts_x, vector<double> &spline_pts_y);
+
+    /**
+     * Helper function to generate a path out of the remaining path points
+     * and using a spline going through the anchor points
+     */ 
+    vector<vector<double>> path_from_spline(Car car, vector<vector<double>> remaining_prev_path,
+                                             vector<double> &spline_pts_x, vector<double> &spline_pts_y);
+
 public:
     Planner(); 
-    //Planner(vector<double> map_waypoints_x,vector<double> map_waypoints_y, 
-    //            vector<double> map_waypoints_s);
+    Planner(vector<double> map_waypoints_x,vector<double> map_waypoints_y, 
+                vector<double> map_waypoints_s);
     virtual ~Planner();
     
     /**
@@ -59,7 +76,14 @@ public:
      * returns a vector containing the x and y coordinates of the generated trajectory
      * the car will slow down to avoid collision with the car in front of it
      */
-    vector<vector<double>> generate_kl_trajectory(Car car, vector<vector<double>> remaining_prev_path);
+    vector<vector<double>> generate_keep_l_tr(Car car, vector<vector<double>> remaining_prev_path);
+    
+    /**
+     * Calculate Trajectory given the change lane state
+     * returns a vector containing the x and y coordinates of the generated trajectory
+     * the car will slow down to avoid collision with the car in front of it
+     */
+    vector<vector<double>> generate_change_l_tr(Car car, vector<vector<double>> remaining_prev_path);
 };
 
 
