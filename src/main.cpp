@@ -122,11 +122,16 @@ int main() {
           car.yaw = car_yaw;
           car.speed = car_speed;
 
-          planner.update_sensor_fusion_data(sensor_fusion);
-          //planner.sensor_fusion_data = sensor_fusion;
-          vector<vector<double>> new_path = planner.generate_keep_l_tr(car, {previous_path_x, previous_path_y} );
+          // update sensor fusion data
+          planner.sensor_fusion(car, sensor_fusion);
+          // TODO: Do prediction
+          // Update Behaviour
+          planner.behaviour(car);
+
+          // caclculate trajectory
+          vector<vector<double>> new_path = planner.trajectory(car, {previous_path_x, previous_path_y} );
           
-          msgJson["next_x"] = new_path[0];//next_x_vals;
+          msgJson["next_x"] = new_path[0]; //next_x_vals;
           msgJson["next_y"] = new_path[1]; //next_y_vals;
 
           auto msg = "42[\"control\","+ msgJson.dump()+"]";
