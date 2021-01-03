@@ -27,12 +27,12 @@ private:
      * Speed Limit: assumed to be lower 50 mph = 22.352 metres per second
      * and the same for all the lanes
      */
-    const double speed_limit = 22.0 ;
+    const double speed_limit = 100.0 ;
 
     /**
      * Safe distance: minimum distance to vehicles in front of our car
      */
-    const double safe_distance = 30.0;
+    const double safe_distance = 100.0;
     /**
      * Target Speed: speed that the vehicle should reach.
      * The traget speed will be incremented gradually (to avoid exceeding the aceleration limit)
@@ -59,6 +59,16 @@ private:
                                                  vector<vector<double>> &remaining_prev_path,
                                              vector<double> &spline_pts_x, vector<double> &spline_pts_y);
     
+
+    /**
+     * Helper function to generate a path out of the remaining path points
+     * and using a spline going through the anchor points
+     */ 
+    vector<vector<double>> path_from_spline_old(double &car_prev_p_last_x, double &car_prev_p_last_y, 
+                                                double &car_prev_p_last_yaw,
+                                                 vector<vector<double>> &remaining_prev_path,
+                                             vector<double> &spline_pts_x, vector<double> &spline_pts_y);
+
     /**
      * FLAGs:
      * collision_warning : this flag is set if the car in front is too close
@@ -97,11 +107,34 @@ public:
 
     /**
      * Calculates the Trajectory
-     * returns a vector containing the x and y coordinates of the generated trajectory
+     * returns a vector co50ntaining the x and y coordinates of the generated trajectory
      * the car will slow down to avoid collision with the car in front of it
      */
     vector<vector<double>> trajectory(Car car, vector<vector<double>> remaining_prev_path);
     
+
+    /**
+     * Calculates the Trajectory
+     * returns a vector containing the x and y coordinates of the generated trajectory
+     * the car will slow down to avoid collision with the car in front of it.
+     * This version uses s and d coordinates to avoid problems with x and y not being ordered
+     * Generating the trajactory is done as follows:
+     * - Step 1: 
+     *   . take 2 points from the last trajectory. If there is no previous trajectory use car's position
+     *     and use car heading to generate a past point
+     *   . use the car's s and d coordinates as anchor points for the spline
+     * - Step 2:
+     *   . generate new anchor points for the spline by adding e.g 30m, 60m and 90m to the s value 
+     *     of the last point and setting the d value to the desired line
+     * - Step 3: 
+     *   . create a spline  using the anchor points. using the s value should be 
+     *   . generate s and d values of path points, by starting with s = last_pt_s + (v * dt)
+     *     and d = spline(s)
+     *   . convert the points to x,y cordinates. 
+     */
+    vector<vector<double>> trajectory_sd(Car car, vector<vector<double>> remaining_prev_path);
+    
+
     /**
      * Calculate Trajectory given the change lane state
      * returns a vector containing the x and y coordinates of the generated trajectory
