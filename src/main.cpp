@@ -58,6 +58,9 @@ int main() {
   // start at middle lane
   int lane = 1;
 
+  // Timer 
+  long long timer = 0;
+
   // initiate planner
   Planner planner; // (map_waypoints_x, map_waypoints_y, map_waypoints_s);
   planner.map_waypoints_s = map_waypoints_s;
@@ -66,7 +69,7 @@ int main() {
   // try to keep speed close to the limit
   double speed_limit = 20.0; // 50 mph = 22.352 metres per second 
   double target_speed = 0.0;
-  h.onMessage([&planner, &target_speed, &speed_limit, &lane, &map_waypoints_x,&map_waypoints_y,&map_waypoints_s,
+  h.onMessage([&timer, &planner, &target_speed, &speed_limit, &lane, &map_waypoints_x,&map_waypoints_y,&map_waypoints_s,
                &map_waypoints_dx,&map_waypoints_dy]
               (uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                uWS::OpCode opCode) {
@@ -126,11 +129,13 @@ int main() {
           planner.sensor_fusion(car, sensor_fusion);
           // TODO: Do prediction
           // Update Behaviour
-          planner.behaviour(car);
+          if(timer % 10) 
+            planner.behaviour(car);
 
           // caclculate trajectory
           vector<vector<double>> new_path = planner.trajectory(car, {previous_path_x, previous_path_y} );
           
+          timer++;
           msgJson["next_x"] = new_path[0]; //next_x_vals;
           msgJson["next_y"] = new_path[1]; //next_y_vals;
 

@@ -162,4 +162,5 @@ vector<string> get_succ_states(string state){
     return {"KL", "CL-L"};
   else if (state == "CL-R")
     return {"KL", "CL-R"};
+  return {"KL"};
 }

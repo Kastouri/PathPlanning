@@ -15,7 +15,7 @@ Planner::Planner(vector<double> map_waypoints_x_i, vector<double> map_waypoints_
                 vector<double> map_waypoints_s_i)  
 {
     target_speed = 0.0;
-    collision_warning = false;
+    //collision_warning = false;
     map_waypoints_x = map_waypoints_x_i;
     map_waypoints_y = map_waypoints_y_i;
     map_waypoints_s = map_waypoints_s_i;
@@ -42,13 +42,13 @@ void Planner::sensor_fusion(Car car, vector<vector<double>> sensor_fusion_data_n
 
     lanes_speed = {speed_limit, speed_limit, speed_limit};
 
-    // set collision warning flag to false
+    /* // set collision warning flag to false
     collision_warning = false;
     // check if  the left lane is safe, set to true and change if car is found in lane
     lane_0_safe = true;
     lane_1_safe = true;
     lane_2_safe = true;
-
+ */
     // s offset to the next vehicle
     double s_offset = 30.0;
     // next vehicle's index 
@@ -81,7 +81,7 @@ void Planner::sensor_fusion(Car car, vector<vector<double>> sensor_fusion_data_n
         int o_car_lane = o_car_d / 4;
         
         // calculate vehicles speed
-        double o_car_speed = sqrt(o_car_vx * o_car_vx + o_car_vy*o_car_vy); 
+        double o_car_speed = sqrt(o_car_vx * o_car_vx + o_car_vy * o_car_vy); 
 
         // Vehicle 
         Vehicle o_car;
@@ -93,8 +93,6 @@ void Planner::sensor_fusion(Car car, vector<vector<double>> sensor_fusion_data_n
         detected_vehicles[o_car.id] = o_car;
         // save in the lanes vehicles list
         vehicles_in_lane[o_car_lane].push_back(o_car);  // TODO: change with push back function and 
-                                                        // save the detected lane in a class varible
-        
 
         // predict the other car's s coordinate
         o_car_s += 0.02 * o_car_speed;
@@ -112,18 +110,18 @@ void Planner::sensor_fusion(Car car, vector<vector<double>> sensor_fusion_data_n
         /**
          * find the slowest vehicle in the lane to determine the lane's speed
          */
-
+        /* 
         // check if lane is safe
         if ((o_car_lane == 0) && (abs(o_car_s - car.s) < safe_distance)){
             lane_0_safe = false;
         }
-        
-        // if an other car is in the same lane
+         */
+        /* // if an other car is in the same lane
         if ((o_car_lane == lane) && (o_car_s > car.s) && ((o_car_s - car.s) < safe_distance)) {  // only consider cars in front
             //cout << "The current lane  is " << lane << endl; 
             //cout << "Car (" << o_car_id << ") in the same lane (" << o_car_lane << ") was detected..." << endl;
             collision_warning = true;
-        }           
+        }            */
     }
     if (next_car_index != -1) {
         cout << "A car was detected whithin the safe distance in the same line." << endl;
@@ -143,14 +141,14 @@ void Planner::sensor_fusion(Car car, vector<vector<double>> sensor_fusion_data_n
     target_vehicles = {no_target,no_target,no_target};
     // find the vehicle that determines the lines speed
     for (int lane_i = 0; lane_i <= 2; ++lane_i) {
-        double lowest_s = car.s + 30.0;
+        double lowest_s = car.s + 40.0;
         for (auto vehicle : vehicles_in_lane[lane_i]) {
-            if ((vehicle.s < lowest_s) && (vehicle.s > car.s - 5.0)) {
+            if ((vehicle.s < lowest_s) && (vehicle.s > car.s - 10.0)) {
                 lanes_speed[lane_i] = vehicle.speed;
                 target_vehicles[lane_i] = vehicle;
             }
         }
-        cout << "Lane " << lane_i << " speed is " << lanes_speed[lane_i] << endl; 
+        // cout << "Lane " << lane_i << " speed is " << lanes_speed[lane_i] << endl; 
     // set lane speed to speed limit if lane is empty
     
     
@@ -318,9 +316,13 @@ vector<vector<double>> Planner::trajectory(Car car, vector<vector<double>> remai
         // if there is a slower car
         if (slow_car.id != -1) {
             cout << "slow car's id " << slow_car.id << endl; 
+            // emergency brake
+            if ((slow_car.s - car.s) < 5.0) {
+                target_speed -= 0.015 * target_speed;
+            }   
             // slow daown if we're faster
-            if (target_speed > slow_car.speed) {
-                target_speed -= 0.005 * target_speed;
+            else if (target_speed > slow_car.speed) {
+                target_speed -= 0.010 * target_speed;
             } 
             // speed up to match slow car's or limit speed
             else if ((target_speed < slow_car.speed) && (target_speed < speed_limit) ){
@@ -428,9 +430,9 @@ void Planner::behaviour(Car car) {
     for (auto next_state: next_states){
         double cost = 0.0;
         // lane speed cost 
-        cost += lane_speed_cost(car, next_state);
-        cost += safety_cost(car, next_state);
-        
+        cost += 1.0 * lane_speed_cost(car, next_state);
+        cost += 0.5 * safety_cost(car, next_state);
+        cost += 0.005 * lane_position_cost(car, next_state);
         // TODO: more cost functions
 
         // if better cost is found
@@ -459,6 +461,7 @@ void Planner::behaviour(Car car) {
 }
 
 double Planner::lane_speed_cost(Car car, string state) {
+    double cost = 0.0;
     // determine the intended lane
     int current_lane = car.d / 4;
     int intended_lane = current_lane;
@@ -468,9 +471,17 @@ double Planner::lane_speed_cost(Car car, string state) {
     else if (state == "PCL-R" || state == "CL-R") {
         intended_lane += 1;
     }
-    cout << "cost function: intended lane speed : " << state << " cost is "  << speed_limit - lanes_speed[intended_lane] << endl;
-    if (intended_lane < 0 || intended_lane > 2) return  999; // stay in the road!!!
-    return speed_limit - lanes_speed[intended_lane]; // TODO: make sure lane speed is not higher than speed limit
+    
+    if (intended_lane < 0 || intended_lane > 2) { 
+        cost = 999; // stay in the road!!!
+    }
+    else {
+        cost = (speed_limit - lanes_speed[intended_lane]);
+        cost = cost / speed_limit; // nomalize to values from 0 to 1
+        if (cost < 0.0) cost = 0.0;  // if fastest car is driving faster than the speed limit 
+    } 
+    cout << "cost function: intended lane speed : " << state << " cost is "  << cost << endl;
+    return cost; // TODO: make sure lane speed is not higher than speed limit
 }
 
 double Planner::safety_cost(Car car,  string state){
@@ -491,12 +502,49 @@ double Planner::safety_cost(Car car,  string state){
         // keeping lane is safe -> cost = 0
         cost = 0.0;
     }
+    // if there are vehicles in the other lanes
     else if (vehicles_in_lane[intended_lane].size() > 0){
-        cost = 5.0;
+        // find the closest car in the intended lane
+        double closest_vehicle_s = safe_distance;
+        for (auto vehicle : vehicles_in_lane[intended_lane]) {
+            double s_dist = abs(vehicle.s - car.s);
+            if (s_dist < closest_vehicle_s){
+                closest_vehicle_s = s_dist;
+            }
+        }
+        cost = 1.0 - (closest_vehicle_s / safe_distance);  // normalize
     }
     else{ 
-        cost = 1.0; // TODO: change using other vehicles s values
+        cost = 0.0; // TODO: change to penalize changing lane 
     }
     cout << "cost function: transition safety : " << state << " cost is "  << cost << endl;
     return cost;
 }
+
+double Planner::lane_position_cost(Car car,  string state) {
+    double cost = 0;
+    // determine the intended lane
+    int current_lane = car.d / 4;
+    int intended_lane = current_lane;
+    if (state == "PCL-L" || state == "CL-L") { // KL", "PCL-L", "PCL-R"};  ")
+        intended_lane -= 1;
+    } 
+    else if (state == "PCL-R" || state == "CL-R") {
+        intended_lane += 1;
+    }
+    if (intended_lane < 0 || intended_lane > 2) return  999; // stay in the road!!!
+
+    // penalize the most left and most right lanes 
+    if (intended_lane == 1) {
+        cost = 0.0;
+    } 
+    else if (intended_lane == 0){
+        cost = 1.0;
+    } 
+    else if (intended_lane == 2){
+        cost = 1.0;
+    }
+    cout << "cost function: lane position: " << state << " cost is "  << cost << endl;
+    return cost;
+}
+

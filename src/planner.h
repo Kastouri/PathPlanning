@@ -77,7 +77,7 @@ private:
 
     
     /**
-     * Cost functions
+     * Cost functions 
      */
     
     // award states that result in faster lanes
@@ -86,18 +86,23 @@ private:
     // penalize the transitions that could result in collision
     double safety_cost(Car car,  string state);
     
+    // reward staying in the middle lane (Because only from there we have 2 possiblities of changing)
+    double lane_position_cost(Car car,  string state);
+
     /**
-     * FLAGs:
+     * NOT USED
+     * FLAGs:  
      * collision_warning : this flag is set if the car in front is too close
      * lane_0_safe : no cars are detected in the left lane and change is safe
      * lane_1_safe : no cars are detected in the middle lane and change is safe
      * lane_2_safe : no cars are detected in the right lane and change is safe
      */
-    bool collision_warning;
-    bool lane_0_safe;
-    bool lane_1_safe;
-    bool lane_2_safe;
-
+    /** 
+     * bool collision_warning 
+     * bool lane_0_safe;
+     * bool lane_1_safe;
+     * bool lane_2_safe;
+     */
     /**
      * Speed of the different lanes: caclculated by the sensor fusion module
      * the speed is determined by the last car. TODO: change this to the first car we can get behind 
@@ -144,28 +149,6 @@ public:
      * the car will slow down to avoid collision with the car in front of it
      */
     vector<vector<double>> trajectory(Car car, vector<vector<double>> remaining_prev_path);
-    
-
-    /**
-     * Calculates the Trajectory
-     * returns a vector containing the x and y coordinates of the generated trajectory
-     * the car will slow down to avoid collision with the car in front of it.
-     * This version uses s and d coordinates to avoid problems with x and y not being ordered
-     * Generating the trajactory is done as follows:
-     * - Step 1: 
-     *   . take 2 points from the last trajectory. If there is no previous trajectory use car's position
-     *     and use car heading to generate a past point
-     *   . use the car's s and d coordinates as anchor points for the spline
-     * - Step 2:
-     *   . generate new anchor points for the spline by adding e.g 30m, 60m and 90m to the s value 
-     *     of the last point and setting the d value to the desired line
-     * - Step 3: 
-     *   . create a spline  using the anchor points. using the s value should be 
-     *   . generate s and d values of path points, by starting with s = last_pt_s + (v * dt)
-     *     and d = spline(s)
-     *   . convert the points to x,y cordinates. 
-     */
-    vector<vector<double>> trajectory_sd(Car car, vector<vector<double>> remaining_prev_path);
     
 
     /**

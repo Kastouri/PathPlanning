@@ -1,3 +1,13 @@
+## Cost functions Configuration: 
+
+| configuration  |  lane_speed_cost | safety_cost | lane_position |
+| :------------- | :--------------: | :----------: | -----------:| 
+|  safe driving  | 1.0              |  1.0         | 0.0         |  
+
+
+
+
+
 # CarND-Path-Planning-Project
 Self-Driving Car Engineer Nanodegree Program
    
