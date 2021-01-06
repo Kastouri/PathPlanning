@@ -4,11 +4,12 @@
 #include <iostream>
 #include <cmath>
 #include <algorithm>
+#include <map>
 
 using std::cout;
 using std::endl;
 using tk::spline;
-
+using std::map;
 
 Planner::Planner(vector<double> map_waypoints_x_i, vector<double> map_waypoints_y_i, 
                 vector<double> map_waypoints_s_i)  
@@ -18,10 +19,15 @@ Planner::Planner(vector<double> map_waypoints_x_i, vector<double> map_waypoints_
     map_waypoints_x = map_waypoints_x_i;
     map_waypoints_y = map_waypoints_y_i;
     map_waypoints_s = map_waypoints_s_i;
+    
  
 } 
 Planner::Planner()  
 {
+    state = "KL";
+    intended_lane = 1;
+    // speed of each lane
+    lanes_speed = {speed_limit, speed_limit, speed_limit};
 
 } 
 
@@ -34,6 +40,8 @@ void Planner::sensor_fusion(Car car, vector<vector<double>> sensor_fusion_data_n
     // calculates car's current lane
     int lane = car.d / 4;
 
+    lanes_speed = {speed_limit, speed_limit, speed_limit};
+
     // set collision warning flag to false
     collision_warning = false;
     // check if  the left lane is safe, set to true and change if car is found in lane
@@ -41,33 +49,114 @@ void Planner::sensor_fusion(Car car, vector<vector<double>> sensor_fusion_data_n
     lane_1_safe = true;
     lane_2_safe = true;
 
+    // s offset to the next vehicle
+    double s_offset = 30.0;
+    // next vehicle's index 
+    int next_car_index = -1;
+    // next vehicle's speed 
+    double next_car_speed = 0;
+
+    // first vehilce determining the speed of each lane
+    //vector<Vehicle> detected_vehicles;
+    // s values of first vehicle in target lane
+    vector<double> target_vehicle_s = {-1, -1, -1}; 
+    vector<Vehicle> target_vehicle;
+    
+    // save all detected vehicles position by id
+    map<int, Vehicle> detected_vehicles;
+    
+    
+    vehicles_in_lane = {};
+    
     // for every vehicle in the traffic
     for (int i = 0; i < sensor_fusion_data.size(); ++i) {
         // extracts vehicles data from sensor fusion data
-        double o_car_id = sensor_fusion_data[i][0];
+        int o_car_id = sensor_fusion_data[i][0];
         double o_car_vx = sensor_fusion_data[i][3];
         double o_car_vy = sensor_fusion_data[i][4];
         double o_car_s = sensor_fusion_data[i][5];
         double o_car_d = sensor_fusion_data[i][6];
+        
         // calculates vehicles lane
         int o_car_lane = o_car_d / 4;
+        
+        // calculate vehicles speed
+        double o_car_speed = sqrt(o_car_vx * o_car_vx + o_car_vy*o_car_vy); 
+
+        // Vehicle 
+        Vehicle o_car;
+        o_car.id = sensor_fusion_data[i][0];
+        o_car.s = sensor_fusion_data[i][5];
+        o_car.d = sensor_fusion_data[i][6];
+        o_car.speed = o_car_speed;
+        // save in the detected vehicles list
+        detected_vehicles[o_car.id] = o_car;
+        // save in the lanes vehicles list
+        vehicles_in_lane[o_car_lane].push_back(o_car);  // TODO: change with push back function and 
+                                                        // save the detected lane in a class varible
+        
+
+        // predict the other car's s coordinate
+        o_car_s += 0.02 * o_car_speed;
+
+        /**
+         * Find the slow vehicle
+         * check if vehilce is in the same lane and is next whithin a limited range
+         */
+        if ((lane == o_car_lane) && ((o_car_s - car.s) < s_offset) && (o_car_s > car.s)) {
+            next_car_index = i;
+            s_offset = (o_car_s - car.s);
+            next_car_speed = o_car_speed; 
+        } 
+        
+        /**
+         * find the slowest vehicle in the lane to determine the lane's speed
+         */
 
         // check if lane is safe
         if ((o_car_lane == 0) && (abs(o_car_s - car.s) < safe_distance)){
             lane_0_safe = false;
         }
-
-        // predict the other car's s coordinate
-        o_car_s += 0.02 * sqrt(o_car_vx * o_car_vx + o_car_vy * o_car_vy);
+        
         // if an other car is in the same lane
         if ((o_car_lane == lane) && (o_car_s > car.s) && ((o_car_s - car.s) < safe_distance)) {  // only consider cars in front
-            cout << "The current lane  is " << lane << endl; 
-            cout << "Car (" << o_car_id << ") in the same lane (" << o_car_lane << ") was detected..." << endl;
+            //cout << "The current lane  is " << lane << endl; 
+            //cout << "Car (" << o_car_id << ") in the same lane (" << o_car_lane << ") was detected..." << endl;
             collision_warning = true;
         }           
     }
+    if (next_car_index != -1) {
+        cout << "A car was detected whithin the safe distance in the same line." << endl;
+        cout << "Car ID " << sensor_fusion_data[next_car_index][0] << ", Speed : " << next_car_speed  << endl;
+    }
+    else {
+        //cout << "No car detected in the same lane." << endl;
+    }
 
+    slow_car.id = next_car_index;
+    slow_car.speed = next_car_speed;
+    
+    // no vehicle
+    Vehicle no_target;
+    no_target.id = -1;
+    no_target.speed = 0.0;
+    target_vehicles = {no_target,no_target,no_target};
+    // find the vehicle that determines the lines speed
+    for (int lane_i = 0; lane_i <= 2; ++lane_i) {
+        double lowest_s = car.s + 30.0;
+        for (auto vehicle : vehicles_in_lane[lane_i]) {
+            if ((vehicle.s < lowest_s) && (vehicle.s > car.s - 5.0)) {
+                lanes_speed[lane_i] = vehicle.speed;
+                target_vehicles[lane_i] = vehicle;
+            }
+        }
+        cout << "Lane " << lane_i << " speed is " << lanes_speed[lane_i] << endl; 
+    // set lane speed to speed limit if lane is empty
+    
+    
+    }
 }
+
 
 void Planner::spline_from_rem_path(double &car_prev_p_last_x,
                                     double &car_prev_p_last_y, 
@@ -102,10 +191,10 @@ void Planner::spline_from_rem_path(double &car_prev_p_last_x,
         spline_pts_x.push_back(car_prev_p_last_x);
         spline_pts_y.push_back(car_prev_p_last_y);
     }
-    cout << "using " << spline_pts_x.size() << " points from previous path for the spline." << endl;
+/*     cout << "using " << spline_pts_x.size() << " points from previous path for the spline." << endl;
     for (int i = 0; i < spline_pts_x.size(); ++i){
         cout << "x = " << spline_pts_x[i] << " y = " << spline_pts_y[i] << endl;
-    }
+    } */
 }
 vector<vector<double>> Planner::path_from_spline(double &car_prev_p_last_x, double &car_prev_p_last_y, 
                                                 double &car_prev_p_last_yaw,
@@ -159,12 +248,12 @@ vector<vector<double>> Planner::path_from_spline(double &car_prev_p_last_x, doub
     spline s;
     s.set_points(spline_pts_x, spline_pts_y);
 
-    // prit all the used points
+/*     // prit all the used points
     for (int i = 0; i < spline_pts_x.size(); ++i){
         cout << "Point x = "<< spline_pts_x[i] << "y = "<< spline_pts_y[i] << endl;
     }
     cout << " finished" << endl;
-
+ */
 
     double car_loacal_x = ref_x;
 
@@ -194,22 +283,6 @@ vector<vector<double>> Planner::path_from_spline(double &car_prev_p_last_x, doub
         y_point += ref_y;
         next_x_vals.push_back(x_point);
         next_y_vals.push_back(y_point);
-        /* // generate new point
-        car_spline_x = car_loacal_x +  0.005; 
-        car_spline_y = s(car_spline_x);
-        // car_spline_yaw = atan2(car_spline_y - car_spline_y_l, car_spline_x - car_spline_x_l);
-        car_loacal_x = car_spline_x;
-        
-        double car_global_x = car_spline_x * cos(ref_yaw) - car_spline_y * sin(ref_yaw);
-        double car_global_y = car_spline_x * sin(ref_yaw) + car_spline_y * cos(ref_yaw);
-
-        car_global_x += ref_x; 
-        car_global_y += ref_y;
-
-        // push to path vector
-        next_x_vals.push_back(car_global_x);
-        next_y_vals.push_back(car_global_y); */
-
   
     }      
 
@@ -217,157 +290,6 @@ vector<vector<double>> Planner::path_from_spline(double &car_prev_p_last_x, doub
 
 }
 
-vector<vector<double>> Planner::path_from_spline_old(double &car_prev_p_last_x, double &car_prev_p_last_y, 
-                                                double &car_prev_p_last_yaw,
-                                                vector<vector<double>> &remaining_prev_path,
-                                                vector<double> &spline_pts_x, vector<double> &spline_pts_y){
-
-    // x and y values for the new path
-    vector<double> next_x_vals;
-    vector<double> next_y_vals;
-
-    // number of remaining points of the prev. path
-    int prev_path_size = remaining_prev_path[0].size();
-
-    /**
-     * Generating the new path
-     *  start by adding new points to the splines Anchor
-     *  generate new points using the spline
-     */
-
-        
-    // add the remaining points from the previous path to the new path
-    for(int i = 0; i < prev_path_size; ++i) {
-        next_x_vals.push_back(remaining_prev_path[0][i]);
-        next_y_vals.push_back(remaining_prev_path[1][i]);
-    }
-
-    double car_spline_x_l = car_prev_p_last_x;
-    double car_spline_y_l = car_prev_p_last_y;
-    double car_spline_yaw_l = car_prev_p_last_yaw;
-    
-    double car_spline_x = car_prev_p_last_x;
-    double car_spline_y = car_prev_p_last_y;
-    double car_spline_yaw = car_prev_p_last_yaw;
-    
-    // generate new points using the spline
-    /**
-     * Check if the points are ordered in x and y directions
-     * generate the spline using the directiion that is ordered.
-     *  if x is ordered: 
-     *     use points (x_i, s(x_i))
-     *  esle if y is ordered: 
-     *     use points (s(y_i), y_i)
-     * in order for both x and y to be an ordered the car will need to do a complete turn
-     * which I will assume to be impossible because I'm generating  only short paths (last anchor is 
-     * 90m away in s-coordinate direction, which is not enough to make a full turn).
-     */
-    double test_x_asc = -99999999.0;
-    double test_y_asc = -99999999.0;
-    double test_x_dsc = 99999999.0;
-    double test_y_dsc = 99999999.0;
-
-    bool x_is_ordered = true;
-    bool y_is_ordered = true;
-    
-    bool x_is_asc = true;
-    bool y_is_asc = true;
-    
-    bool x_is_dsc = true;
-    bool y_is_dsc = true;
-    
-    for (int i = 0; i < spline_pts_x.size(); ++i) {
-        if ((spline_pts_x[i] <  test_x_asc) || (abs(spline_pts_x[i]-test_x_asc)) < 0.000001)
-            x_is_asc = false;
-        if ((spline_pts_y[i] <  test_y_asc) || (abs(spline_pts_y[i]-test_y_asc)) < 0.000001)
-            y_is_asc = false;
-        test_x_asc = spline_pts_x[i];
-        test_y_asc = spline_pts_y[i];
-    
-        if ((spline_pts_x[i] >=  test_x_dsc) || (abs(spline_pts_x[i]-test_x_dsc)) < 0.000001) 
-            x_is_dsc = false;
-        if (spline_pts_y[i] >=  test_y_dsc || (abs(spline_pts_y[i]-test_y_dsc)) < 0.000001) 
-            y_is_dsc = false;
-        test_x_dsc = spline_pts_x[i];
-        test_y_dsc = spline_pts_y[i];
-    }
-    x_is_ordered = x_is_asc || x_is_dsc;
-    y_is_ordered = y_is_asc || y_is_dsc;
-    
-    cout << " x values : ";
-    for (int i = 0; i < spline_pts_x.size(); ++i){
-        cout << spline_pts_x[i] << ", ";
-    }
-    cout << endl;
-    cout << " y values : ";
-    for (int i = 0; i < spline_pts_y.size(); ++i){
-        cout << spline_pts_y[i] << ", ";
-    }
-    cout << endl;
-    if (!x_is_asc) cout << " Spline points are not in ascending order in x direction" << endl; 
-    else cout << " Spline points are in ascending order in x direction" << endl;
-
-    if (!x_is_dsc) cout << " Spline points are not in descending order in x direction" << endl; 
-    else cout << " Spline points are in descending order in x direction" << endl;
-
-    if (!y_is_asc) cout << " Spline points are not in ascending order in y direction" << endl; 
-    else cout << " Spline points are in ascending order in y direction" << endl;
-
-    if (!y_is_dsc) cout << " Spline points are not in descending order in y direction" << endl; 
-    else cout << " Spline points are in descending order in y direction" << endl;
-
-
-    spline s;
-    cout << "Setting spline anchor points ..." << endl;
-    if (x_is_ordered){
-        if (x_is_dsc) { // revert points order if x order is descending
-            std::reverse(spline_pts_x.begin(), spline_pts_x.end());    
-            std::reverse(spline_pts_y.begin(), spline_pts_y.end());
-            }
-        s.set_points(spline_pts_x, spline_pts_y);
-    }
-    else {
-        if (y_is_dsc) { // revert points order if x order is descending
-            std::reverse(spline_pts_x.begin(), spline_pts_x.end());    
-            std::reverse(spline_pts_y.begin(), spline_pts_y.end());
-            }
-        s.set_points(spline_pts_y, spline_pts_x);
-    }
-    // prit all the used points
-    for (int i = 0; i < spline_pts_x.size(); ++i){
-        cout << "Point x = "<< spline_pts_x[i] << "y = "<< spline_pts_y[i] << endl;
-    }
-    cout << " finished" << endl;
-
-    for (int i = 0; i < 50 - prev_path_size; ++i) {
-        if (!x_is_ordered && !y_is_ordered) break;
-        // generate new point
-        if (x_is_ordered) {
-            cout << " using x direction" << endl;
-            car_spline_x = car_spline_x_l +  cos(car_spline_yaw_l) * 0.02 * target_speed; 
-            car_spline_y = s(car_spline_x);
-            car_spline_yaw = atan2(car_spline_y - car_spline_y_l, car_spline_x - car_spline_x_l);
-        }
-        else {
-            cout << " using y direction" << endl;
-            car_spline_y =  car_spline_y_l +  sin(car_spline_yaw_l) * 0.02 * target_speed;
-            car_spline_x = s(car_spline_y); 
-            car_spline_yaw = atan2(car_spline_y - car_spline_y_l, car_spline_x - car_spline_x_l);
-        }
-        
-        // push to path vector
-        next_x_vals.push_back(car_spline_x);
-        next_y_vals.push_back(car_spline_y);
-
-        // update last point in path
-        car_spline_x_l = car_spline_x;
-        car_spline_y_l = car_spline_y;
-        car_spline_yaw_l = car_spline_yaw;   
-    }      
-
-    return {next_x_vals, next_y_vals};
-
-}
 
 vector<vector<double>> Planner::trajectory(Car car, vector<vector<double>> remaining_prev_path){
 
@@ -377,16 +299,44 @@ vector<vector<double>> Planner::trajectory(Car car, vector<vector<double>> remai
     vector<vector<double>> next_xy_vals;
     
     // speed up if too slow and not close too other vehicles
-    if (!collision_warning && (target_speed < speed_limit)) {
-        target_speed += 0.35;
-        if (target_speed > speed_limit) target_speed = speed_limit;
-    }
-    else if (target_speed > 5.0 && state == "KL"){/** only slow down if not changing lane
-                                                   *  slowing down while changing lane is dangerous
-                                                   */
-        target_speed -= 0.1;
-    }
     
+    //if (!collision_warning && (target_speed < speed_limit)) {
+    //    target_speed += 0.35;
+    //    if (target_speed > speed_limit) target_speed = speed_limit;
+    //}
+    //else if (target_speed > 5.0 && state == "KL"){/** only slow down if not changing lane
+    //                                               *  slowing down while changing lane is dangerous
+    //                                               */
+    //    target_speed -= 0.01 * target_speed;
+    //}
+    
+    /**
+     * If we are in the keep line state: match the slow car's speed if one is detected
+     *  or the speed limit.
+     */ 
+    if (state == "KL") {
+        // if there is a slower car
+        if (slow_car.id != -1) {
+            cout << "slow car's id " << slow_car.id << endl; 
+            // slow daown if we're faster
+            if (target_speed > slow_car.speed) {
+                target_speed -= 0.005 * target_speed;
+            } 
+            // speed up to match slow car's or limit speed
+            else if ((target_speed < slow_car.speed) && (target_speed < speed_limit) ){
+                target_speed += 0.35;
+            }
+        }
+        // if no slower car is detected, match the speed limit
+        else if (target_speed < speed_limit){
+            target_speed += 0.35;
+            if (target_speed > speed_limit) target_speed = speed_limit;
+        }
+    } 
+    if (state == "PCL-R" || state == "PCL-L") {
+        
+    }
+
     // anchor vector for the spline
     vector<double> spline_pts_x;
     vector<double> spline_pts_y;
@@ -420,9 +370,9 @@ vector<vector<double>> Planner::trajectory(Car car, vector<vector<double>> remai
      */
     // calculate car's current lane
     int lane = car.d / 4;
-    double d_err = 0;
-    if (state == "CL-R") d_err = 4.0;
-    else if (state == "CL-L") d_err = -4.0;
+    double d_err = (intended_lane - lane) * 4.0;
+   /*  if (state == "CL-R") d_err = 4.0;
+    else if (state == "CL-L") d_err = -4.0; */
 
 
     // add 3 new points to the spline
@@ -453,8 +403,8 @@ void Planner::behaviour(Car car) {
     // calculate car's current lane
     int lane_current = car.d / 4;
     
-    state = "KL";  // TODO: go back here using transition if the Lane Change is done
-    if (collision_warning) {
+    //state = "KL";  // TODO: go back here using transition if the Lane Change is done
+    /* if (collision_warning) {
         if (lane_current == 0){
             if  (lane_1_safe) state = "CL-R";
         }
@@ -465,137 +415,88 @@ void Planner::behaviour(Car car) {
         else if (lane_current == 2) {
             if (lane_1_safe) state = "CL-L";
         }
-    }
+    } */
+    /**
+     * TODO:
+     * - list all ppossible states and generate a rough idea of a trajectory ??
+     * - calculate the cost of each of the states 
+     * - choose the best state to go to
+     */
+    string best_next_state = state;
+    double best_cost = 9999999;
+    vector<string> next_states = get_succ_states(state);
+    for (auto next_state: next_states){
+        double cost = 0.0;
+        // lane speed cost 
+        cost += lane_speed_cost(car, next_state);
+        cost += safety_cost(car, next_state);
+        
+        // TODO: more cost functions
 
-    // TODO: 
+        // if better cost is found
+        if (cost < best_cost) {
+            best_next_state = next_state;
+            best_cost = cost;
+        }
+    }
+    cout << "current state : " << state << endl;
+    cout << "best next state : " << best_next_state << endl; 
+    cout << "total cost: intended lane speed : " << best_next_state << " cost is "  << best_cost << endl;
+    /**
+     * TODO: depending on the chosen state
+     * for the KL state set target lane (d) to same lane
+     * for the PLC State: the target lane is empty or contains vehicles
+     */
+    int current_lane = car.d / 4;
+    intended_lane = current_lane;
+    if (state == "PCL-L" || state == "CL-L") { // KL", "PCL-L", "PCL-R"};  ")
+        intended_lane -= 1;
+    } 
+    else if (state == "PCL-R" || state == "CL-R") {
+        intended_lane += 1;
+    }
+    state = best_next_state;
 }
 
-
-
-vector<vector<double>> Planner::trajectory_sd(Car car, vector<vector<double>> remaining_prev_path){
-
-    
-    // speed up if too slow and not close too other vehicles
-    if (!collision_warning && (target_speed < speed_limit)) {
-        target_speed += 0.35;
-        if (target_speed > speed_limit) target_speed = speed_limit;
+double Planner::lane_speed_cost(Car car, string state) {
+    // determine the intended lane
+    int current_lane = car.d / 4;
+    int intended_lane = current_lane;
+    if (state == "PCL-L" || state == "CL-L") { // KL", "PCL-L", "PCL-R"};  ")
+        intended_lane -= 1;
+    } 
+    else if (state == "PCL-R" || state == "CL-R") {
+        intended_lane += 1;
     }
-    else if (target_speed > 5.0 && state == "KL"){/** only slow down if not changing lane
-                                                   *  slowing down while changing lane is dangerous
-                                                   */
-        target_speed -= 0.1;
+    cout << "cost function: intended lane speed : " << state << " cost is "  << speed_limit - lanes_speed[intended_lane] << endl;
+    if (intended_lane < 0 || intended_lane > 2) return  999; // stay in the road!!!
+    return speed_limit - lanes_speed[intended_lane]; // TODO: make sure lane speed is not higher than speed limit
+}
+
+double Planner::safety_cost(Car car,  string state){
+    double cost = 0;
+    // determine the intended lane
+    int current_lane = car.d / 4;
+    int intended_lane = current_lane;
+    if (state == "PCL-L" || state == "CL-L") { // KL", "PCL-L", "PCL-R"};  ")
+        intended_lane -= 1;
+    } 
+    else if (state == "PCL-R" || state == "CL-R") {
+        intended_lane += 1;
     }
-    
-    // anchor vector for the spline
-    vector<double> spline_pts_s;
-    vector<double> spline_pts_d;
+    if (intended_lane < 0 || intended_lane > 2) return  999; // stay in the road!!!
 
-    // number of remaining points of the prev. path
-    int prev_path_size = remaining_prev_path[0].size();
-
-    // get last point's position and orientation from previous path (currently last pt in spline vec.)
-    double car_prev_p_last_x = car.x;
-    double car_prev_p_last_y = car.y;
-    double car_prev_p_last_yaw = car.yaw;
-
-    /**
-     * Get 2 points from the previous path
-     */
-
-    if (prev_path_size >= 2) {  // use last 2 points as anchor points
-        for (int i = 2; i >= 1; --i ){
-            // push min_num_prev_pt point to the splines anchor vector
-            double x = remaining_prev_path[0][prev_path_size - i];
-            double y = remaining_prev_path[1][prev_path_size - i];
-            double yaw = car_prev_p_last_yaw;
-            vector<double> sd = getFrenet(x, y, yaw, map_waypoints_x, map_waypoints_y);
-            spline_pts_s.push_back(sd[0]);
-            spline_pts_d.push_back(sd[1]);
-        }
-        car_prev_p_last_x = remaining_prev_path[0][prev_path_size - 1];
-        car_prev_p_last_y = remaining_prev_path[1][prev_path_size - 1];
-        car_prev_p_last_yaw = atan2(car_prev_p_last_y - remaining_prev_path[1][prev_path_size - 2],
-                                        car_prev_p_last_x - remaining_prev_path[0][prev_path_size - 2]);
-    } else { // no previous path, use cars position and orientation
-        // get a previous point using the cars position and orientation
-        double prev_point_dist = 3.0;
-        double car_prev_x = car_prev_p_last_x - cos(car_prev_p_last_yaw) * prev_point_dist;
-        double car_prev_y = car_prev_p_last_y - sin(car_prev_p_last_yaw) * prev_point_dist; 
-
-        double x = car_prev_x;
-        double y = car_prev_y;
-        double yaw = car.yaw;
-
-        vector<double> sd = getFrenet(x, y, yaw, map_waypoints_x, map_waypoints_y);
-        spline_pts_s.push_back(sd[0]);
-        spline_pts_d.push_back(sd[1]);
-
-        x = car_prev_p_last_x;
-        y = car_prev_p_last_y;
-        yaw = car.yaw;
-
-        sd = getFrenet(x, y, yaw, map_waypoints_x, map_waypoints_y);
-        spline_pts_s.push_back(sd[0]);
-        spline_pts_d.push_back(sd[1]);
+    // check if there are close vehicles in the intended lane
+    if (intended_lane == current_lane){
+        // keeping lane is safe -> cost = 0
+        cost = 0.0;
     }
-
-    
-    /**
-     * Generate new points
-     */
-    // s and d coordinates of the last point
-    vector<double> last_sd = getFrenet(car_prev_p_last_x, car_prev_p_last_y, car_prev_p_last_yaw, map_waypoints_x, map_waypoints_y);
-    for (int i = 1; i <= 3; ++i){
-        spline_pts_s.push_back(last_sd[0] + 30.0 * i);
-        spline_pts_d.push_back(last_sd[1]);        
+    else if (vehicles_in_lane[intended_lane].size() > 0){
+        cost = 5.0;
     }
-    /**
-     * add remaining path points
-     */
-        // x and y values for the new path
-    vector<double> next_x_vals;
-    vector<double> next_y_vals;
-    vector<double> next_xy_vals;
-
-    /**
-     * Generating the new path
-     *  start by adding new points to the splines Anchor
-     *  generate new points using the spline
-     */
-        
-    // add the remaining points from the previous path to the new path
-    for(int i = 0; i < prev_path_size; ++i) {
-        next_x_vals.push_back(remaining_prev_path[0][i]);
-        next_y_vals.push_back(remaining_prev_path[1][i]);
+    else{ 
+        cost = 1.0; // TODO: change using other vehicles s values
     }
-
-    /** 
-     * Generate Path points using spline
-     */
-    cout << "s values : ";
-    for (int i = 0; i< spline_pts_s.size(); ++i){
-        cout << spline_pts_s[i] << ", "; 
-    }
-    cout << endl;
-
-    spline s;
-    s.set_points(spline_pts_s, spline_pts_d);
-    double point_s = last_sd[0];
-    double point_d = last_sd[1];
-    
-    for(int i = 0; i < 50 - prev_path_size; ++i) {
-        // generate s , d coordinates using the spline
-        point_s = point_s + target_speed * 0.02;
-        point_d = point_d;
-        vector<double> xy = getXY(point_s, point_d, map_waypoints_s, map_waypoints_x, map_waypoints_y); 
-        // convert to x, y 
-        next_x_vals.push_back(xy[0]);
-        next_y_vals.push_back(xy[1]);
-    }
-
-
-
-    
-
-    return {next_x_vals, next_y_vals};
+    cout << "cost function: transition safety : " << state << " cost is "  << cost << endl;
+    return cost;
 }

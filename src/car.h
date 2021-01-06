@@ -5,6 +5,9 @@
 using std::vector;
 using std::string;
 
+/**
+ * Describes our car
+ */
 struct Car {
     double x;
     double y;
@@ -12,6 +15,19 @@ struct Car {
     double d;
     double yaw;
     double speed; 
+};
+
+/**
+ * This Structure describes a detected vehicle and holds the following information: id, x, y, s, d, speed
+ */
+struct Vehicle{
+    int id;
+    double x;
+    double y;
+    double s;
+    double d;
+    double speed;
+    string behaviour;
 };
 
 // TODO: you may need a class

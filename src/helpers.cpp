@@ -150,3 +150,16 @@ vector<double> getXY(double s, double d, const vector<double> &maps_s,
 
   return {x,y};
 }
+
+vector<string> get_succ_states(string state){
+  if (state == "KL")
+    return {"KL", "PCL-L", "PCL-R"};  
+  else if (state == "PCL-L")
+    return {"KL", "CL-L"};
+  else if (state == "PCL-R")
+    return {"KL", "PCL-R"};
+  else if (state == "CL-L")
+    return {"KL", "CL-L"};
+  else if (state == "CL-R")
+    return {"KL", "CL-R"};
+}

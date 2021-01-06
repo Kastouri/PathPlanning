@@ -1,11 +1,12 @@
 #ifndef PLANNER_H
 #define PLANNER_H 
 #include <vector>
+#include <map>
 #include <string>
 #include "car.h"
 using std::vector;
 using std::string;
-
+using std::map;
 
 class Planner
 {
@@ -27,18 +28,23 @@ private:
      * Speed Limit: assumed to be lower 50 mph = 22.352 metres per second
      * and the same for all the lanes
      */
-    const double speed_limit = 100.0 ;
+    const double speed_limit = 22.0 ;
 
     /**
      * Safe distance: minimum distance to vehicles in front of our car
      */
-    const double safe_distance = 100.0;
+    const double safe_distance = 50.0;
     /**
      * Target Speed: speed that the vehicle should reach.
      * The traget speed will be incremented gradually (to avoid exceeding the aceleration limit)
      * until the speed limit is reached.
      */
     double target_speed;
+
+    /**
+     * Intended lane number: the lane the car is intanding to change to.
+     */
+    int intended_lane;
 
     /**
      * Helper function to add 2 points from the previous path to the spline anchor vector
@@ -69,6 +75,17 @@ private:
                                                  vector<vector<double>> &remaining_prev_path,
                                              vector<double> &spline_pts_x, vector<double> &spline_pts_y);
 
+    
+    /**
+     * Cost functions
+     */
+    
+    // award states that result in faster lanes
+    double lane_speed_cost(Car car, string state);  // penalize the slower lanes
+    
+    // penalize the transitions that could result in collision
+    double safety_cost(Car car,  string state);
+    
     /**
      * FLAGs:
      * collision_warning : this flag is set if the car in front is too close
@@ -80,6 +97,22 @@ private:
     bool lane_0_safe;
     bool lane_1_safe;
     bool lane_2_safe;
+
+    /**
+     * Speed of the different lanes: caclculated by the sensor fusion module
+     * the speed is determined by the last car. TODO: change this to the first car we can get behind 
+     */
+    vector<double> lanes_speed;
+
+    /**
+     * Vehicles to Merge behind when changing lane
+     */
+    vector<Vehicle> target_vehicles;
+
+    /**
+     *  saves all the vehicles in each lane
+     */
+    map<int,vector<Vehicle>> vehicles_in_lane;
 
 public:
     Planner(); 
@@ -147,6 +180,13 @@ public:
      * implements state transition
      */
     void behaviour(Car car);
+
+
+    /**
+     * The following element describes the next vehicle in the same lane. if the lane is empty the id will be set to -1.
+     * If we are keeping the same lane, the speed of our car should match its speed.
+     */
+    Vehicle slow_car;
 
 };
 

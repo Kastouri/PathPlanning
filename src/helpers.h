@@ -46,6 +46,9 @@ vector<double> getXY(double s, double d, const vector<double> &maps_s,
                      const vector<double> &maps_x, 
                      const vector<double> &maps_y);
 
+// lists the next possible states of the state machine
+vector<string> get_succ_states(string state);
+
 
 
 #endif  // HELPERS_H
