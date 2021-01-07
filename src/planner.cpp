@@ -505,14 +505,14 @@ double Planner::safety_cost(Car car,  string state){
     // if there are vehicles in the other lanes
     else if (vehicles_in_lane[intended_lane].size() > 0){
         // find the closest car in the intended lane
-        double closest_vehicle_s = 10.0;
+        double closest_vehicle_s = 15.0;
         for (auto vehicle : vehicles_in_lane[intended_lane]) {
             double s_dist = abs(vehicle.s - car.s);
             if (s_dist < closest_vehicle_s){
                 closest_vehicle_s = s_dist;
             }
         }
-        cost = 1.0 - (closest_vehicle_s / 10.0);  // normalize
+        cost = 1.0 - (closest_vehicle_s / 15.0);  // normalize
     }
     else{ 
         cost = 0.0; // TODO: change to penalize changing lane 
