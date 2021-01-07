@@ -2,7 +2,7 @@
 # CarND-Path-Planning-Project
 Self-Driving Car Engineer Nanodegree Program
 
-### Description
+## Description
 The goal of this project is to make a car in drive around a track in a simulated environment. This environment simulates the traffic in a highway. 
 The car should go around the track without causing any incidents:
 - the acceleration and and jerk shall not exceed a maximum value to ensure a comfortable ride
@@ -11,15 +11,20 @@ The car should go around the track without causing any incidents:
 The car should also drive at a speed near the speed limit when ever possible and pass slower traffic.
 
 <center>
-<img src="doc/path_planner_demo.gif" alt="drawing" width="300"/>   
+<img src="doc/path_planner_demo.gif" alt="drawing" width="300"/>   git
 </center>
+
+
 ## Planner
+
 The Planner class realizes different modules:
+
 ### Sensor Fusion: 
 this module gets a list of attributes of other cars in the traffic and realizes the following :
 - determining the speed of each lane
 - saves the vehicles in separate lists depending on the lane they are in
 - finds the car in front in the same lane to avoid collision
+
 ### Path Planning:
 This modules calculates the path the will follow. The path is generated as described below (approach from Q&A video):
 - the remaining points from the previous path are added to the new path to ensure that the car follows a smooth path
