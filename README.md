@@ -1,4 +1,8 @@
-## Cost functions Configuration: 
+
+# CarND-Path-Planning-Project
+Self-Driving Car Engineer Nanodegree Program
+
+## Cost functions: 
 
 | configuration  |  lane_speed_cost | safety_cost | lane_position |
 | :------------- | :--------------: | :----------: | -----------:| 
@@ -7,9 +11,46 @@
 
 
 
+### Description
+The goal of this project is to make a car in drive around a track in a simulated environment. This environment simulates the traffic in a highway. 
+The car should go around the track without causing any incidents:
+- the acceleration and and jerk shall not exceed a maximum value
+- collision with othe vehicles must be avoided 
+- the car should drive in the middle of the lane
+The car should also drive at a speed near the speed limit when ever possible and pass slower traffic.
 
-# CarND-Path-Planning-Project
-Self-Driving Car Engineer Nanodegree Program
+## Planner
+The Planner class realizes different modules:
+### Sensor Fusion: 
+this module gets a list of attributes of other cars in the traffic and realizes the following :
+- determining the speed of each lane
+- saves the vehicles in seperate lists depending on the lane they are in
+- finds the car in front in the same lane to avoid collision
+### Path Planning:
+This modules calculates the path the will follow. The path is generated as described below (approach from Q&A video):
+- the reamining points from the previous path are added to the new path to ensure that the car follows a smooth path
+- the new part of the path is generated using a spline with 5 anchor points
+To ensure that the transition from the ramining points to the ones is smooth, the first 2 anchor points of the spline where set to be the lat 2 remaing points. The remaining 3 points are set by transforming the x,y-coordinates of the last previos point to s,d-coordinates and adding to the s-value. The d-value is set depending on the intended lane that was determined by the behaviour planner. For example if the intended lane is to the left of the current lane 4.0 is substracted from the last d-value. Using a spline makes sure that the transition is still smooth.  
+
+Generating x,y-coordinates using the spline caused some problems. For instance, the x values must be in increasing order. My initial apporoach was to order the x values before generating the spline. If multiple points in the spine have the same x-value, I decided to generate the spline using the y values (spline(y) instead of spline(x)). I assumed that having unordered x and y values is impossible as this  would require the car to do  a comlete turn. As this got more commplicated I decided to use the approach from the Q&A video.   
+
+The path planner module also determines wheter the car need to speed up or slow down. The following behaviour was implemented:
+- the car will speed up to match the speed limit when possible (no collision)
+- the car will slow down to match the speed of the vehicle in front of it.   
+
+For slowing down 2 cases  where implemented. 
+- in the normal case, slowing down happends with a rate of 1% the current speed of car
+- in the emergency braking case (if to close to another car), slowing down happends with a rate of 1.5% the current speed of car
+
+### Behaviour Planning
+This module is called less often and determines what the car will do next.
+The behaviour of the car is described using a the state machine from the lecture videos on behaviour planing. 
+Every time this module is called, possible next states are determined.
+The cost of each of the steps is calculated, and the next step is chosen to be the one with the lowest cost. 
+The value of the intended lane is set according to the chosen next state.
+
+### Prediction
+The problem of predicting the behaviour of other vehicles on the road can be determined 
    
 ### Simulator.
 You can download the Term3 Simulator which contains the Path Planning Project from the [releases tab (https://github.com/udacity/self-driving-car-sim/releases/tag/T3_v1.2).  
@@ -19,20 +60,19 @@ To run the simulator on Mac/Linux, first make the binary file executable with th
 sudo chmod u+x {simulator_file_name}
 ```
 
-### Goals
-In this project your goal is to safely navigate around a virtual highway with other traffic that is driving +-10 MPH of the 50 MPH speed limit. You will be provided the car's localization and sensor fusion data, there is also a sparse map list of waypoints around the highway. The car should try to go as close as possible to the 50 MPH speed limit, which means passing slower traffic when possible, note that other cars will try to change lanes too. The car should avoid hitting other cars at all cost as well as driving inside of the marked road lanes at all times, unless going from one lane to another. The car should be able to make one complete loop around the 6946m highway. Since the car is trying to go 50 MPH, it should take a little over 5 minutes to complete 1 loop. Also the car should not experience total acceleration over 10 m/s^2 and jerk that is greater than 10 m/s^3.
-
-#### The map of the highway is in data/highway_map.txt
-Each waypoint in the list contains  [x,y,s,dx,dy] values. x and y are the waypoint's map coordinate position, the s value is the distance along the road to get to that waypoint in meters, the dx and dy values define the unit normal vector pointing outward of the highway loop.
-
-The highway's waypoints loop around so the frenet s value, distance along the road, goes from 0 to 6945.554.
-
 ## Basic Build Instructions
 
 1. Clone this repo.
 2. Make a build directory: `mkdir build && cd build`
 3. Compile: `cmake .. && make`
 4. Run it: `./path_planning`.
+
+
+### The map of the highway is in data/highway_map.txt
+Each waypoint in the list contains  [x,y,s,dx,dy] values. x and y are the waypoint's map coordinate position, the s value is the distance along the road to get to that waypoint in meters, the dx and dy values define the unit normal vector pointing outward of the highway loop.
+
+The highway's waypoints loop around so the frenet s value, distance along the road, goes from 0 to 6945.554.
+
 
 Here is the data provided from the Simulator to the C++ Program
 
